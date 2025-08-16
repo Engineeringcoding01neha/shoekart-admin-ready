@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Plus, Edit, Trash2, Package, Users, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 
 interface Product {
   id: string;
@@ -45,6 +47,10 @@ export default function Admin() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
+  // Analytics state
+  const [ordersByDay, setOrdersByDay] = useState<{ date: string; count: number }[]>([]);
+  const [revenueByDay, setRevenueByDay] = useState<{ date: string; revenue: number }[]>([]);
+  
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -68,6 +74,7 @@ export default function Admin() {
     }
     if (isAdmin) {
       fetchData();
+      fetchAnalytics();
     }
   }, [user, isAdmin, roleLoading, navigate]);
 
@@ -109,6 +116,47 @@ export default function Admin() {
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      // Fetch last 30 days orders for analytics
+      const since = new Date();
+      since.setDate(since.getDate() - 29);
+      const sinceIso = since.toISOString();
+
+      const { data: ordersData, error } = await supabase
+        .from('orders')
+        .select('created_at, total_amount')
+        .gte('created_at', sinceIso)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const series: { [key: string]: { count: number; revenue: number } } = {};
+      for (let i = 0; i < 30; i++) {
+        const d = new Date(since);
+        d.setDate(since.getDate() + i);
+        const key = d.toISOString().slice(0, 10);
+        series[key] = { count: 0, revenue: 0 };
+      }
+
+      (ordersData || []).forEach((o) => {
+        const key = new Date(o.created_at).toISOString().slice(0, 10);
+        if (!series[key]) series[key] = { count: 0, revenue: 0 };
+        series[key].count += 1;
+        series[key].revenue += Number(o.total_amount);
+      });
+
+      const ordersSeries = Object.entries(series).map(([date, v]) => ({ date, count: v.count }));
+      const revenueSeries = Object.entries(series).map(([date, v]) => ({ date, revenue: Number(v.revenue.toFixed(2)) }));
+
+      setOrdersByDay(ordersSeries);
+      setRevenueByDay(revenueSeries);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      toast.error('Failed to load analytics');
     }
   };
 
@@ -245,6 +293,7 @@ export default function Admin() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -471,6 +520,52 @@ export default function Admin() {
                 </Card>
               ))}
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue (Last 30 Days)</CardTitle>
+                <CardDescription>Daily revenue from all orders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{ revenue: { label: 'Revenue', color: 'hsl(var(--primary))' } }}
+                  className="w-full h-80"
+                >
+                  <LineChart data={revenueByDay} margin={{ left: 10, right: 10, top: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tickMargin={8} minTickGap={16} />
+                    <YAxis tickMargin={8} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Orders (Last 30 Days)</CardTitle>
+                <CardDescription>Number of orders per day</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{ orders: { label: 'Orders', color: 'hsl(var(--muted-foreground))' } }}
+                  className="w-full h-80"
+                >
+                  <BarChart data={ordersByDay} margin={{ left: 10, right: 10, top: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tickMargin={8} minTickGap={16} />
+                    <YAxis tickMargin={8} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="var(--color-orders)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>

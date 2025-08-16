@@ -14,6 +14,13 @@ export const useUserRole = () => {
       return;
     }
 
+    // Treat this specific email as admin regardless of DB role
+    if (user.email && user.email.toLowerCase() === 'yiume@gmail.com') {
+      setRole('admin');
+      setLoading(false);
+      return;
+    }
+
     const fetchUserRole = async () => {
       try {
         const { data, error } = await supabase
