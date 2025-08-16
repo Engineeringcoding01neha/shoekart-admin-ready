@@ -38,7 +38,11 @@ export default function Auth() {
 
       if (data.user) {
         toast.success('Signed in successfully!');
-        navigate('/');
+        if (data.user.email && data.user.email.toLowerCase() === 'yiume@gmail.com') {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in');
@@ -84,7 +88,7 @@ export default function Auth() {
       
       // First create the account
       const { data, error } = await supabase.auth.signUp({
-        email: 'admin@shoekart.com',
+        email: 'yiume@gmail.com',
         password: 'admin123',
         options: {
           emailRedirectTo: `${window.location.origin}/`,
@@ -107,7 +111,7 @@ export default function Auth() {
           console.error('Error setting admin role:', roleError);
         }
 
-        toast.success('Admin account created! Email: admin@shoekart.com, Password: admin123');
+        toast.success('Admin account created! Email: yiume@gmail.com, Password: admin123');
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to create admin account');
@@ -223,7 +227,7 @@ export default function Auth() {
             Create Admin Account for Testing
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            This will create an admin account with email: admin@shoekart.com
+            This will create an admin account with email: yiume@gmail.com
           </p>
         </div>
       </div>
