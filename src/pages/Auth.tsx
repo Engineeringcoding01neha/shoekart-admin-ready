@@ -20,7 +20,12 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/');
+      const userEmail = (user.email || '').trim().toLowerCase();
+      if (userEmail === 'yiume@gmail.com') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     }
   }, [user, navigate]);
 
@@ -38,7 +43,7 @@ export default function Auth() {
 
       if (data.user) {
         toast.success('Signed in successfully!');
-        if (data.user.email && data.user.email.toLowerCase() === 'yiume@gmail.com') {
+        if ((data.user.email || '').trim().toLowerCase() === 'yiume@gmail.com') {
           navigate('/admin');
         } else {
           navigate('/');
@@ -101,7 +106,7 @@ export default function Auth() {
       if (error) throw error;
 
       if (data.user) {
-        // Make this user an admin
+        // Attempt to set admin role (may be blocked by RLS; UI still recognizes this email as admin)
         const { error: roleError } = await supabase
           .from('user_roles')
           .update({ role: 'admin' })
